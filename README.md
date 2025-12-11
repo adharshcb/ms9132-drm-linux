@@ -1,90 +1,141 @@
-NOTE: This directory is intended to be published as the root of the ms9132-drm-linux repository.
+# ms9132-drm-linux
 
-ms9132-drm-linux
-=================
+Linux DRM driver for MacroSilicon MS9132/MS9133/MS9135 USB display adapters.
 
-Short description
------------------
-This repository contains the MacroSilicon MS9132 Linux DRM driver sources (USB display adapter driver). The files in `DRM_SourceCode_V3.0.3.12` were extracted from the vendor source distribution and adapted here for distribution under the original license.
+## Supported Devices
 
-Origin & Attribution
---------------------
-- Original vendor: MacroSilicon Technology Co., Ltd.
-- Upstream/source archive referenced: `MS91xx_Linux_Drm_SourceCode_V3.0.1.3.zip` (as noted in the distributed sources).
-- This repository includes source files found in `DRM_SourceCode_V3.0.3.12`.
+| Vendor ID | Product ID | Device |
+|-----------|------------|--------|
+| 0x345f    | 0x9132     | MS9132 USB Display |
+| 0x345f    | 0x9133     | MS9133 USB Display |
+| 0x345f    | 0x9135     | MS9135 USB Display |
 
-License
--------
-All source files in this repository are licensed under the GNU General Public License version 2 (GPLv2). See the `DRM_SourceCode_V3.0.3.12/LICENSE` file or the top-level `LICENSE` file for the full text.
+## Origin & License
 
-What is included here
-----------------------
-- `DRM_SourceCode_V3.0.3.12/` — the DRM and HAL sources, build scripts, and vendor-provided artifacts.
-- Utility scripts: `insmod.sh`, `reload_fixed_driver.sh`, and helper files inside the `DRM_SourceCode_V3.0.3.12` directory.
+- **Original vendor:** MacroSilicon Technology Co., Ltd.
+- **License:** GNU General Public License version 2 (GPLv2)
+- **Based on:** MS91xx_Linux_Drm_SourceCode_V3.0.3.12
 
-Build & install (basic)
------------------------
-These are general steps — your distribution and kernel version may require adjustments.
+See the [LICENSE](LICENSE) file for the full license text.
 
-1. Install kernel headers and build dependencies for your running kernel (example for Debian/Ubuntu):
+## Bug Fixes Applied
+
+This version includes fixes for critical issues in the original driver:
+
+### 1. Dialog Box Freeze Fix
+**Problem:** Opening dialog boxes (file pickers, popups) caused the entire UI to freeze.
+
+**Cause:** The driver used blocking `mutex_lock()` in the frame update path, causing cascading blockage during rapid frame updates.
+
+**Fix:** Changed to non-blocking `mutex_trylock()` in `drm/msdisp_drm_modeset.c`. When the lock is busy, frames are skipped instead of blocking the UI.
+
+### 2. Kernel Crash Fix
+**Problem:** System crashed with page fault in `usb_hal_state_machine` when dialogs appeared.
+
+**Cause:** Missing bounds checking and NULL pointer validation in cursor buffer handling code.
+
+**Fix:** Added comprehensive validation in `usb_hal/usb_hal_thread.c`:
+- NULL pointer checks for all buffer accesses
+- Bounds validation for cursor buffer offsets
+- Dimension validation before buffer operations
+- Prevention of out-of-bounds memory access in cursor blending loop
+
+## Build & Install
+
+### Prerequisites
 
 ```bash
+# Debian/Ubuntu
 sudo apt-get install build-essential linux-headers-$(uname -r)
+
+# Fedora
+sudo dnf install kernel-devel kernel-headers gcc make
+
+# Arch Linux
+sudo pacman -S linux-headers base-devel
 ```
 
-2. Build the driver (kbuild)
+### Build
 
 ```bash
-cd DRM_SourceCode_V3.0.3.12
+make clean
 make
 ```
 
-If building against a different kernel version, set `KVER` or `KDIR` when invoking `make`. See the included `Makefile`.
-
-3. Load the modules (example)
+### Install & Load
 
 ```bash
-cd DRM_SourceCode_V3.0.3.12
-sudo ./insmod.sh
+# Quick reload (unloads old, installs new, loads modules)
+sudo ./reload_fixed_driver.sh
+
+# Or manually:
+sudo cp drm/usbdisp_drm.ko /lib/modules/$(uname -r)/extra/
+sudo cp drm/usbdisp_usb.ko /lib/modules/$(uname -r)/extra/
+sudo depmod -a
+sudo modprobe usbdisp_drm
+sudo modprobe usbdisp_usb
 ```
 
-Or use `insmod`/`modprobe` directly with the built `.ko` files from `drm/`.
+### Configure Display
 
-Notes and warnings
-------------------
-- Kernel modules and compiled objects included in vendor archives (e.g., `.o`, `.ko`) may not be portable across kernel versions — prefer building on-target.
-- This driver interacts with the kernel USB and DRM subsystems; load/unload only with appropriate privileges and care.
-- If you redistribute modified versions, comply with GPLv2 requirements: preserve copyright notices, include license text, and provide source.
+After loading the driver:
 
-How to cite/source
-------------------
-If you publish or distribute this code, include a note linking back to the original vendor archive and this repository. Example sentence to include in a `NOTICE` or documentation:
+```bash
+# List display providers
+xrandr --listproviders
 
-"Driver sources based on MacroSilicon MS91xx/MS9132 Linux DRM source (MS91xx_Linux_Drm_SourceCode_V3.0.1.3.zip) and distributed under GPLv2."
+# Associate USB display with main GPU (adjust numbers as needed)
+xrandr --setprovideroutputsource 1 0
 
-Next recommended steps
-----------------------
-- Review and remove any compiled artifacts you do not want in the repository (e.g., `.o`, `.ko`, intermediate build files). These are present currently; consider adding a `.gitignore` to exclude them if you plan to keep the repo source-only.
-- Optionally rename repo to `ms9132-drm-linux` (recommended) when creating the remote on GitHub.
-
-Recent changes (from git commits)
---------------------------------
-- `dcf32ac` (2025-12-11) — Add USB HAL interface and implementation for MacroSilicon chips 913x and 912.
-- `9bfefaa` (2025-12-11) — Update READMEs for `ms9132-drm-linux` rename and add `.gitignore`.
-- `ed75db2` (2025-12-11) — Add README: origin, license, build and usage for ms9132 DRM.
-- `5fbc06e` (2025-12-11) — Add DRM_SourceCode_V3.0.3.12 DRM source (expanded) and GPLv2 LICENSE.
-
-Build note (local test)
-----------------------
-- I built the driver locally (kbuild) on this host; the build completed successfully and produced kernel modules in `drm/`:
-
-```
-drm/usbdisp_drm.ko
-drm/usbdisp_usb.ko
+# Check available outputs
+xrandr
 ```
 
-`modinfo` on these modules reports `vermagic: 6.8.0-88-generic`, so they were built against the headers found on this machine.
+## Kernel Module Info
 
-Contact / Issues
-----------------
-Create issues in the repository or contact the maintainer(s) listed in repository metadata.
+The driver produces two kernel modules:
+- `usbdisp_drm.ko` - DRM (Direct Rendering Manager) driver
+- `usbdisp_usb.ko` - USB HAL (Hardware Abstraction Layer) driver
+
+## Tested On
+
+- Ubuntu 24.04 with kernel 6.8.0-88-generic
+- Dell Vostro 3500 laptop
+
+## Known Limitations
+
+- Some applications with custom cursor rendering (e.g., Postman) may have invisible cursors on the USB display. The cursor functionality works (items highlight on hover), but the cursor image may not be visible.
+
+## Troubleshooting
+
+### Check if driver is loaded
+```bash
+lsmod | grep usbdisp
+```
+
+### Check USB device detection
+```bash
+lsusb | grep 345f
+```
+
+### View driver logs
+```bash
+sudo dmesg | grep -E "(msdisp|usb_hal|usbdisp)"
+```
+
+### Check driver statistics
+```bash
+cat /sys/bus/usb/drivers/msdisp_usb/*/frame
+```
+
+## Contributing
+
+Issues and pull requests are welcome. When reporting bugs, please include:
+- Kernel version (`uname -r`)
+- Driver logs (`dmesg | grep msdisp`)
+- Steps to reproduce
+
+## Credits
+
+- Original driver: MacroSilicon Technology Co., Ltd.
+- Bug fixes: Community contributions
