@@ -67,6 +67,24 @@ Next recommended steps
 - Review and remove any compiled artifacts you do not want in the repository (e.g., `.o`, `.ko`, intermediate build files). These are present currently; consider adding a `.gitignore` to exclude them if you plan to keep the repo source-only.
 - Optionally rename repo to `ms9132-drm-linux` (recommended) when creating the remote on GitHub.
 
+Recent changes (from git commits)
+--------------------------------
+- `dcf32ac` (2025-12-11) — Add USB HAL interface and implementation for MacroSilicon chips 913x and 912.
+- `9bfefaa` (2025-12-11) — Update READMEs for `ms9132-drm-linux` rename and add `.gitignore`.
+- `ed75db2` (2025-12-11) — Add README: origin, license, build and usage for ms9132 DRM.
+- `5fbc06e` (2025-12-11) — Add DRM_SourceCode_V3.0.3.12 DRM source (expanded) and GPLv2 LICENSE.
+
+Build note (local test)
+----------------------
+- I built the driver locally (kbuild) on this host; the build completed successfully and produced kernel modules in `drm/`:
+
+```
+drm/usbdisp_drm.ko
+drm/usbdisp_usb.ko
+```
+
+`modinfo` on these modules reports `vermagic: 6.8.0-88-generic`, so they were built against the headers found on this machine.
+
 Contact / Issues
 ----------------
 Create issues in the repository or contact the maintainer(s) listed in repository metadata.

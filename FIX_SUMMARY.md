@@ -98,3 +98,17 @@ October 28, 2025
 
 ## Modified Files
 - `drm/msdisp_drm_modeset.c` (line 344): Changed last parameter from 0 to 1
+
+## Repository updates (2025-12-11)
+
+- `dcf32ac` (2025-12-11) — Added USB HAL interface and implementation for MacroSilicon 913x/912 chips; new HAL sources placed under `usb_hal/` and integrated into the `drm/` build.
+- `9bfefaa` (2025-12-11) — Update README files and add `.gitignore` to reduce accidental commits of build artifacts.
+- `ed75db2` (2025-12-11) — Add top-level README and documentation about origin, license, build and usage.
+- `5fbc06e` (2025-12-11) — Add expanded DRM source package `DRM_SourceCode_V3.0.3.12` and GPLv2 license text.
+
+Build/test note (local)
+----------------------
+- A local kbuild was executed successfully producing `drm/usbdisp_drm.ko` and `drm/usbdisp_usb.ko`. This indicates the tree builds against the kernel headers present on the build host (vermagic shown as `6.8.0-88-generic`).
+
+## Updated
+- Updated: 2025-12-11 — added repository updates and build notes.
