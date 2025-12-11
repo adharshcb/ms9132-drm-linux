@@ -1,3 +1,5 @@
+NOTE: This directory is intended to be published as the root of the ms9132-drm-linux repository.
+
 ms9132-drm-linux
 =================
 
