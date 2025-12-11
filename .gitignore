@@ -1,0 +1,23 @@
+# Ignore build artifacts and kernel module outputs
+*.o
+*.ko
+*.mod
+*.mod.c
+*.o.cmd
+*.cmd
+*.d
+Module.symvers
+modules.order
+*.so
+*.a
+
+# Editor and OS files
+*.swp
+*~
+.DS_Store
+.vscode/
+.idea/
+
+# Ignore local build directories
+build/
+obj/
