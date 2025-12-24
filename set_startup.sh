@@ -1,34 +1,44 @@
 #!/bin/bash
 
-# Exit immediately if any command fails
+# Exit immediately if any command fa#!/bin/bash
 set -e
 
-echo "Cleaning previous builds..."
-make clean
+echo "[INFO] Starting driver installation..."
 
-echo "Compiling modules..."
-make
+echo "[INFO] Cleaning previous builds..."
+# 1. Build clean driver (removes the log spam)
+make clean && make
 
-# Wait a bit to ensure build completes
-sleep 2
+echo "[INFO] Unloading existing modules..."
+# 2. Install to system
+sudo rmmod usbdisp_drm usbdisp_usb || true
 
-# Ensure the target directory exists with proper permissions
-if [ -f /lib/modules/$(uname -r)/extra ]; then
-    echo "Removing file blocking /lib/modules/$(uname -r)/extra..."
-    sudo rm -f /lib/modules/$(uname -r)/extra
-fi
+echo "[INFO] Removing old drivers from system folder..."
+sudo rm -f /lib/modules/$(uname -r)/extra/usbdisp_drm.ko
+sudo rm -f /lib/modules/$(uname -r)/extra/usbdisp_usb.ko
 
-echo "Creating module directory..."
-sudo mkdir -p /lib/modules/$(uname -r)/extra/
-
-echo "Copying modules..."
-sudo cp ./drm/usbdisp_drm.ko /lib/modules/$(uname -r)/extra/
-sudo cp ./drm/usbdisp_usb.ko /lib/modules/$(uname -r)/extra/
-
-echo "Updating module dependencies..."
+echo "[INFO] Installing new drivers..."
+sudo cp drm/usbdisp_drm.ko /lib/modules/$(uname -r)/extra/
+sudo cp drm/usbdisp_usb.ko /lib/modules/$(uname -r)/extra/
 sudo depmod -a
 
-echo "Modules installed successfully."
-echo "You can now load them using:"
-echo "  sudo modprobe usbdisp_drm"
-echo "  sudo modprobe usbdisp_usb"
+echo "[INFO] Configuring startup..."
+# 3. Configure startup (adds to /etc/modules if not already there)
+echo "[INFO] Configuring startup via systemd service (using bash wrapper for absolute paths)..."
+# 3. Configure systemd service (loads from /lib/modules/$(uname -r)/extra/)
+sudo cp usbdisp.service /etc/systemd/system/
+sudo systemctl daemon-reload
+# Re-enable to ensure it picks up the change
+sudo systemctl enable usbdisp.service
+sudo systemctl restart usbdisp.service
+
+echo "[SUCCESS] Driver installed and configured for startup."
+# 4. Load now
+sudo modprobe usbdisp_drm
+sudo modprobe usbdisp_usb
+
+echo "[INFO] Restarting display manager to detect new driver..."
+# Restart display manager to pick up the new driver immediately
+sudo systemctl restart display-manager
+
+echo "[SUCCESS] Driver installed and configured for startup."

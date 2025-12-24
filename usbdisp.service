@@ -1,0 +1,14 @@
+[Unit]
+Description=Load Macrosilicon USB Display Drivers
+After=network.target
+Before=display-manager.service
+
+[Service]
+Type=oneshot
+# Use bash to resolve uname -r dynamically since %r failed
+ExecStart=/bin/bash -c '/sbin/insmod /lib/modules/$(uname -r)/extra/usbdisp_drm.ko'
+ExecStart=/bin/bash -c '/sbin/insmod /lib/modules/$(uname -r)/extra/usbdisp_usb.ko'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

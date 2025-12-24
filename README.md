@@ -18,27 +18,21 @@ Linux DRM driver for MacroSilicon MS9132/MS9133/MS9135 USB display adapters.
 
 See the [LICENSE](LICENSE) file for the full license text.
 
-## Bug Fixes Applied
+## New Features & Fixes
 
-This version includes fixes for critical issues in the original driver:
+This version includes multiple fixes for modern Linux kernels (6.x+):
 
-### 1. Dialog Box Freeze Fix
-**Problem:** Opening dialog boxes (file pickers, popups) caused the entire UI to freeze.
+### 1. Kernel 6.8+ Support
+**Fix:** Updated driver callbacks (`remove` function return type) to match newer Linux Kernel API API requirements. Verified working on `6.8.0-90-generic`.
 
-**Cause:** The driver used blocking `mutex_lock()` in the frame update path, causing cascading blockage during rapid frame updates.
+### 2. Dialog Box Freeze Fix
+**Fix:** Changed blocking `mutex_lock()` to non-blocking `mutex_trylock()` in the frame update path. This prevents the entire UI from freezing when dialog boxes or popups appear.
 
-**Fix:** Changed to non-blocking `mutex_trylock()` in `drm/msdisp_drm_modeset.c`. When the lock is busy, frames are skipped instead of blocking the UI.
+### 3. Kernel Crash Fix
+**Fix:** Added comprehensive validation in `usb_hal_thread.c` for buffer access and cursor handling to prevent page faults.
 
-### 2. Kernel Crash Fix
-**Problem:** System crashed with page fault in `usb_hal_state_machine` when dialogs appeared.
-
-**Cause:** Missing bounds checking and NULL pointer validation in cursor buffer handling code.
-
-**Fix:** Added comprehensive validation in `usb_hal/usb_hal_thread.c`:
-- NULL pointer checks for all buffer accesses
-- Bounds validation for cursor buffer offsets
-- Dimension validation before buffer operations
-- Prevention of out-of-bounds memory access in cursor blending loop
+### 4. Reliable Auto-Load (Systemd)
+**New:** Included a systemd service (`usbdisp.service`) to reliably load the driver modules on boot, replacing the older/unreliable `/etc/modules` method.
 
 ## Build & Install
 
@@ -55,30 +49,48 @@ sudo dnf install kernel-devel kernel-headers gcc make
 sudo pacman -S linux-headers base-devel
 ```
 
-### Build
+### Quick Install (Recommended)
+
+One script cleans, builds, installs, and configures the driver to load on startup:
+
+```bash
+chmod +x set_startup.sh
+sudo bash ./set_startup.sh
+```
+
+### Manual Build
 
 ```bash
 make clean
 make
 ```
 
-### Install & Load
+### Manual Install & Load
 
-```bash
-# Quick reload (unloads old, installs new, loads modules)
-sudo ./reload_fixed_driver.sh
+1.  **Copy modules:**
+    ```bash
+    sudo cp drm/usbdisp_drm.ko /lib/modules/$(uname -r)/extra/
+    sudo cp drm/usbdisp_usb.ko /lib/modules/$(uname -r)/extra/
+    sudo depmod -a
+    ```
 
-# Or manually:
-sudo cp drm/usbdisp_drm.ko /lib/modules/$(uname -r)/extra/
-sudo cp drm/usbdisp_usb.ko /lib/modules/$(uname -r)/extra/
-sudo depmod -a
-sudo modprobe usbdisp_drm
-sudo modprobe usbdisp_usb
-```
+2.  **Load modules:**
+    ```bash
+    sudo modprobe usbdisp_drm
+    sudo modprobe usbdisp_usb
+    ```
 
-### Configure Display
+3.  **Configure Auto-Load (Manual Systemd):**
+    Copy `usbdisp.service` to `/etc/systemd/system/`, then:
+    ```bash
+    sudo systemctl daemon-reload
+    sudo systemctl enable usbdisp.service
+    sudo systemctl start usbdisp.service
+    ```
 
-After loading the driver:
+## Configure Display
+
+After loading the driver, the display should appear automatically. If not:
 
 ```bash
 # List display providers
@@ -91,20 +103,10 @@ xrandr --setprovideroutputsource 1 0
 xrandr
 ```
 
-## Kernel Module Info
-
-The driver produces two kernel modules:
-- `usbdisp_drm.ko` - DRM (Direct Rendering Manager) driver
-- `usbdisp_usb.ko` - USB HAL (Hardware Abstraction Layer) driver
-
 ## Tested On
 
-- Ubuntu 24.04 with kernel 6.8.0-88-generic
+- **Ubuntu 24.04** with kernel **6.8.0-90-generic**
 - Dell Vostro 3500 laptop
-
-## Known Limitations
-
-- Some applications with custom cursor rendering (e.g., Postman) may have invisible cursors on the USB display. The cursor functionality works (items highlight on hover), but the cursor image may not be visible.
 
 ## Troubleshooting
 
@@ -112,6 +114,12 @@ The driver produces two kernel modules:
 ```bash
 lsmod | grep usbdisp
 ```
+
+### Check Service Status
+```bash
+systemctl status usbdisp.service
+```
+Should show `Active: active (exited)`.
 
 ### Check USB device detection
 ```bash
@@ -123,19 +131,9 @@ lsusb | grep 345f
 sudo dmesg | grep -E "(msdisp|usb_hal|usbdisp)"
 ```
 
-### Check driver statistics
-```bash
-cat /sys/bus/usb/drivers/msdisp_usb/*/frame
-```
-
 ## Contributing
 
 Issues and pull requests are welcome. When reporting bugs, please include:
 - Kernel version (`uname -r`)
 - Driver logs (`dmesg | grep msdisp`)
 - Steps to reproduce
-
-## Credits
-
-- Original driver: MacroSilicon Technology Co., Ltd.
-- Bug fixes: Community contributions
